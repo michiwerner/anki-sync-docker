@@ -1,0 +1,26 @@
+services:
+  server:
+
+    # Option 1: Build from local Dockerfile
+    build:
+      context: .
+
+    # Option 2: Use pre-built image from GHCR
+    #image: ghcr.io/michiwerner/anki-sync-docker:latest
+
+    container_name: server
+    restart: unless-stopped
+    ports:
+      - "27701:27701"
+    environment:
+      # User authentication
+      - SYNC_USER1=username:password  # Change this to your desired username/password
+      # - SYNC_USER2=user2:pass2      # Uncomment to add more users
+      # - PASSWORDS_HASHED=1          # Uncomment if using hashed passwords
+      # - MAX_SYNC_PAYLOAD_MEGS=200   # Uncomment to increase the max payload size
+    volumes:
+      - anki-data:/data
+
+volumes:
+  anki-data:
+    # Using a named volume for persistence 
