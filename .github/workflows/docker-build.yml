@@ -149,7 +149,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  build-and-push-pr:
+  build-amd64-pr:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
