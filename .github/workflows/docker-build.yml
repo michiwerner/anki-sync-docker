@@ -10,7 +10,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  LATEST_ANKI_VERSION: 25.02.4  # Update this when new Anki versions are released
+  LATEST_ANKI_VERSION: 25.02.5  # Update this when new Anki versions are released
 
 jobs:
   build-amd64-main:

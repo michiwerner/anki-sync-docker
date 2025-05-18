@@ -30,7 +30,7 @@ docker build -t anki-sync-server .
 To build with a specific Anki version:
 
 ```
-docker build -t anki-sync-server --build-arg ANKI_VERSION=25.02.4 .
+docker build -t anki-sync-server --build-arg ANKI_VERSION=25.02.5 .
 ```
 
 ## Run
@@ -71,7 +71,7 @@ The workflow is defined in `.github/workflows/docker-build.yml`.
 
 The CI/CD pipeline automatically matches the Anki version to the image tag:
 
-- When building from a version tag (e.g., `v25.02.4`), the Docker image uses that same version of Anki (without the "v" prefix)
+- When building from a version tag (e.g., `v25.02.5`), the Docker image uses that same version of Anki (without the "v" prefix)
 - When building from the main branch, the image uses the latest Anki version (defined in the workflow file)
 
 This ensures that specific tagged images always match their corresponding Anki versions.
@@ -99,7 +99,7 @@ The following tags are automatically generated:
 
 ### Build Arguments
 
-- `ANKI_VERSION`: The Anki version to build the sync server from (default: 25.02.4)
+- `ANKI_VERSION`: The Anki version to build the sync server from (default: 25.02.5)
 
 ### Volumes
 
