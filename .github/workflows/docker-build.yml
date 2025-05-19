@@ -59,16 +59,20 @@ jobs:
           echo "is_latest_tag_eligible=$IS_LATEST_TAG_ELIGIBLE" >> $GITHUB_OUTPUT
           echo "tag_version_clean=$TAG_VERSION_CLEAN" >> $GITHUB_OUTPUT
 
-      - name: Extract metadata for Docker (Tag Push)
-        id: meta_tag
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            # Tag with the anki version (without v)
-            type=raw,value=${{ steps.anki_details_tag.outputs.tag_version_clean }}
-            # If the tag's anki version is equal to LATEST_ANKI_VERSION, also update the latest tag
-            type=raw,value=latest,enable=${{ steps.anki_details_tag.outputs.is_latest_tag_eligible == 'true' }}
+      - name: Prepare image tags
+        id: image_tags
+        run: |
+          TAG_VERSION="${{ steps.anki_details_tag.outputs.tag_version_clean }}"
+          TAGS_STRING="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG_VERSION}"
+          if [ "${{ steps.anki_details_tag.outputs.is_latest_tag_eligible }}" == "true" ]; then
+            TAGS_STRING="$TAGS_STRING\n${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          fi
+          # GITHUB_OUTPUT needs specific syntax for multiline strings
+          {
+            echo 'tags<<HEREDOC_DELIMITER_TAGS'
+            echo -e "$TAGS_STRING"
+            echo 'HEREDOC_DELIMITER_TAGS'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image (multi-platform for Tag Push)
         uses: docker/build-push-action@v5
@@ -76,8 +80,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta_tag.outputs.tags }}
-          labels: ${{ steps.meta_tag.outputs.labels }}
+          tags: ${{ steps.image_tags.outputs.tags }}
           build-args: |
             ANKI_VERSION=${{ steps.anki_details_tag.outputs.anki_version }}
           cache-from: type=gha
@@ -102,14 +105,20 @@ jobs:
           echo "Using latest Anki version ${{ env.LATEST_ANKI_VERSION }} for this build."
           echo "version=${{ env.LATEST_ANKI_VERSION }}" >> $GITHUB_OUTPUT
 
-      - name: Extract metadata for Docker (local/non-push build)
-        id: meta_other
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha,prefix=${{ github.event_name == 'pull_request' && format('pr-{0}-', github.event.number) || format('branch-{0}-', github.ref_name) }}
-            # Example tags: pr-123-sha123abc, branch-main-sha123abc
+      - name: Prepare local build tag
+        id: local_build_tag
+        run: |
+          TAG_VALUE_PREFIX=""
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            TAG_VALUE_PREFIX="pr-${{ github.event.number }}"
+          elif [ "${{ github.event_name }}" == "push" ] && [[ "${{ github.ref }}" == refs/heads/* ]]; then
+            BRANCH_NAME_SANITIZED=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9_.-]/-/g')
+            TAG_VALUE_PREFIX="branch-${BRANCH_NAME_SANITIZED}"
+          else
+            TAG_VALUE_PREFIX="build" # Fallback for other types of refs if any
+          fi
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG_VALUE_PREFIX}-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Build Docker image (amd64, no push)
         uses: docker/build-push-action@v5
@@ -117,8 +126,7 @@ jobs:
           context: .
           platforms: linux/amd64
           push: false
-          tags: ${{ steps.meta_other.outputs.tags }}
-          labels: ${{ steps.meta_other.outputs.labels }}
+          tags: ${{ steps.local_build_tag.outputs.tag }}
           build-args: |
             ANKI_VERSION=${{ steps.anki_version_other.outputs.version }}
           cache-from: type=gha
