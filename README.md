@@ -58,32 +58,35 @@ You can specify a different Anki version in the `docker-compose.yml` file by cha
 
 ## CI/CD Pipeline
 
-This repository includes a GitHub Actions workflow that:
+This repository includes a GitHub Actions workflow that automates the building and pushing of the Docker image to the GitHub Container Registry (GHCR). The workflow handles different scenarios:
 
-1. Builds the Docker image on pushes to main branch and tags
-2. Pushes the image to GitHub Container Registry (GHCR)
-3. Creates versioned tags for releases
-4. Builds multi-architecture images for both AMD64 and ARM64 platforms
+1.  **Push to `main` branch:**
+    *   Builds the Docker image using the `LATEST_ANKI_VERSION` (defined in the workflow file) for both `linux/amd64` and `linux/arm64` platforms.
+    *   Pushes the multi-architecture image and tags it solely as `latest`.
 
-The workflow is defined in `.github/workflows/docker-build.yml`.
+2.  **Push to a version tag (e.g., `vX.Y.Z`):**
+    *   Extracts the version `X.Y.Z` from the tag.
+    *   Builds the Docker image using this specific Anki version for both `linux/amd64` and `linux/arm64` platforms.
+    *   Pushes the multi-architecture image and tags it with the version (e.g., `X.Y.Z`).
+    *   If the version `X.Y.Z` from the tag matches the `LATEST_ANKI_VERSION`, the `latest` tag is also updated to point to this build.
 
-### Version Matching
+3.  **Pull Request to `main` branch (and other cases):**
+    *   Builds the Docker image using the `LATEST_ANKI_VERSION` for the `linux/amd64` platform only.
+    *   The image is **not** pushed to the registry. This step is for validation and testing.
 
-The CI/CD pipeline automatically matches the Anki version to the image tag:
-
-- When building from a version tag (e.g., `v25.02.5`), the Docker image uses that same version of Anki and is tagged with the version without the "v" prefix (e.g., `25.02.5`)
-- When building from the main branch, the image uses the latest Anki version (defined in the workflow file) and is tagged as `latest`
-- If a git tag version matches the latest Anki version, the image is also tagged as `latest`
-
-This ensures that specific tagged images always match their corresponding Anki versions.
+The workflow is defined in `.github/workflows/docker-build.yml`. It leverages multi-platform builds and caching for efficiency.
 
 ### Image Tags
 
-The following tags are automatically generated:
-- `latest` - Latest build from the main branch (or when a git tag matches the latest Anki version)
-- `X.Y.Z` - Semantic version tags (when you create a git tag like `vX.Y.Z`, the 'v' prefix is removed)
-- `X.Y` - Major.Minor version tags
-- `sha-XXXXXX` - Short commit SHA
+The following primary tags are automatically generated and pushed to GHCR based on the CI/CD pipeline:
+
+-   `latest`:
+    *   Updated on every push to the `main` branch (points to the image built with `LATEST_ANKI_VERSION`).
+    *   Also updated when a version tag (e.g., `vX.Y.Z`) is pushed, if that version `X.Y.Z` matches the `LATEST_ANKI_VERSION`.
+-   `X.Y.Z`:
+    *   Created when a git tag like `vX.Y.Z` is pushed. The image is built with Anki version `X.Y.Z` and tagged as `X.Y.Z` (the 'v' prefix is removed).
+
+For pull request builds, temporary tags (e.g., `build-<PR_NUMBER>-<SHA>`) might be generated for caching and identification purposes but are not pushed to the public registry.
 
 ## Configuration
 

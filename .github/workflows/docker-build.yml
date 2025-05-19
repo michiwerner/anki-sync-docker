@@ -13,8 +13,8 @@ env:
   LATEST_ANKI_VERSION: 25.02.5  # Update this when new Anki versions are released
 
 jobs:
-  build-and-push-amd64-main:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  build_and_push:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -22,181 +22,119 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set Anki version
-        id: anki_version
-        run: |
-          echo "Using latest Anki version $LATEST_ANKI_VERSION"
-          echo "version=$LATEST_ANKI_VERSION" >> $GITHUB_OUTPUT
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-      - name: Build and push Docker image (amd64)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            ANKI_VERSION=${{ steps.anki_version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
-  build-and-push-amd64-tag:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set Anki version
-        id: anki_version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "Using Anki version $VERSION from tag"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-      - name: Extract version parts
-        id: anki_version_parts
-        run: |
-          IFS='.' read -r major minor _ <<< "${{ steps.anki_version.outputs.version }}"
-          echo "major_minor=${major}.${minor}" >> $GITHUB_OUTPUT
-      - name: Check if this is the latest Anki version
-        id: is_latest
-        run: |
-          if [ "${{ steps.anki_version.outputs.version }}" = "${{ env.LATEST_ANKI_VERSION }}" ]; then
-            echo "latest=true" >> $GITHUB_OUTPUT
-          else
-            echo "latest=false" >> $GITHUB_OUTPUT
-          fi
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=${{ steps.anki_version.outputs.version }}
-            type=raw,value=${{ steps.anki_version_parts.outputs.major_minor }}
-            type=sha,format=short
-            type=raw,value=latest,enable=${{ steps.is_latest.outputs.latest }}
-      - name: Build and push Docker image (amd64)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            ANKI_VERSION=${{ steps.anki_version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  build-and-push-arm64-tag:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
-          platforms: arm64
+          platforms: arm64 # Ensure arm64 emulation is available
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set Anki version
-        id: anki_version
+
+      - name: Determine Anki version and tagging strategy
+        id: anki_details
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "Using Anki version $VERSION from tag"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-      - name: Extract version parts
-        id: anki_version_parts
-        run: |
-          IFS='.' read -r major minor _ <<< "${{ steps.anki_version.outputs.version }}"
-          echo "major_minor=${major}.${minor}" >> $GITHUB_OUTPUT
-      - name: Check if this is the latest Anki version
-        id: is_latest
-        run: |
-          if [ "${{ steps.anki_version.outputs.version }}" = "${{ env.LATEST_ANKI_VERSION }}" ]; then
-            echo "latest=true" >> $GITHUB_OUTPUT
+          ANKI_VERSION=""
+          IS_LATEST_TAG_ELIGIBLE="false"
+          TAG_VERSION_CLEAN="" # Numeric part of the tag, e.g., 25.02.5
+
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            ANKI_VERSION="${{ env.LATEST_ANKI_VERSION }}"
+            # For main branch, 'latest' tag is primary
+            echo "Event: Push to main branch."
+            echo "Anki version to build: $ANKI_VERSION"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v25.02.5 -> 25.02.5
+            ANKI_VERSION="$TAG_VERSION_CLEAN"
+            echo "Event: Push to tag ${{ github.ref_name }}."
+            echo "Anki version to build: $ANKI_VERSION (from tag)"
+            if [ "$TAG_VERSION_CLEAN" == "${{ env.LATEST_ANKI_VERSION }}" ]; then
+              IS_LATEST_TAG_ELIGIBLE="true"
+              echo "This tag's version matches LATEST_ANKI_VERSION, so 'latest' tag will also be applied."
+            else
+              echo "This tag's version does not match LATEST_ANKI_VERSION."
+            fi
           else
-            echo "latest=false" >> $GITHUB_OUTPUT
+            echo "::error:: This job is intended for push to main or v* tags, but ref is ${{ github.ref }}"
+            exit 1
           fi
+          echo "anki_version=$ANKI_VERSION" >> $GITHUB_OUTPUT
+          echo "is_latest_tag_eligible=$IS_LATEST_TAG_ELIGIBLE" >> $GITHUB_OUTPUT
+          echo "tag_version_clean=$TAG_VERSION_CLEAN" >> $GITHUB_OUTPUT
+
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ steps.anki_version.outputs.version }}
-            type=raw,value=${{ steps.anki_version_parts.outputs.major_minor }}
-            type=sha,format=short
-            type=raw,value=latest,enable=${{ steps.is_latest.outputs.latest }}
-      - name: Build and push Docker image (arm64)
+            # Case 1: Push to main - only tag with 'latest'
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+            # Case 2: Push to tag v*
+            # Tag with the anki version (without v)
+            type=raw,value=${{ steps.anki_details.outputs.tag_version_clean }},enable=${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+            # If the tag's anki version is equal to LATEST_ANKI_VERSION, also update the latest tag
+            type=raw,value=latest,enable=${{ steps.anki_details.outputs.is_latest_tag_eligible == 'true' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Build and push Docker image (multi-platform)
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/arm64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            ANKI_VERSION=${{ steps.anki_version.outputs.version }}
+            ANKI_VERSION=${{ steps.anki_details.outputs.anki_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  build-amd64-pr:
+  build_other:
+    # Handles "all other cases", which, based on 'on:' triggers, is pull_request to main.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # No packages: write permission needed as we are not pushing
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Set Anki version
-        id: anki_version
+        # No QEMU needed for amd64 only build on amd64 runner
+        # No login needed as we are not pushing
+
+      - name: Set Anki version for this build
+        id: anki_version_other
         run: |
-          echo "Using latest Anki version $LATEST_ANKI_VERSION"
-          echo "version=$LATEST_ANKI_VERSION" >> $GITHUB_OUTPUT
+          echo "Using latest Anki version ${{ env.LATEST_ANKI_VERSION }} for this build."
+          echo "version=${{ env.LATEST_ANKI_VERSION }}" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata for Docker (local build)
+        id: meta_other
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} # Image name for local build/cache
+          tags: | # Tags for local build identification, not for pushing
+            type=sha,prefix=build-${{ github.event.number }}- # Incorporate PR number or a generic prefix
+
       - name: Build Docker image (amd64, no push)
         uses: docker/build-push-action@v5
         with:
           context: .
           platforms: linux/amd64
-          push: false
+          push: false # Do not push
+          tags: ${{ steps.meta_other.outputs.tags }}
+          labels: ${{ steps.meta_other.outputs.labels }}
           build-args: |
-            ANKI_VERSION=${{ steps.anki_version.outputs.version }}
+            ANKI_VERSION=${{ steps.anki_version_other.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
