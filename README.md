@@ -60,33 +60,33 @@ You can specify a different Anki version in the `docker-compose.yml` file by cha
 
 This repository includes a GitHub Actions workflow that automates the building and pushing of the Docker image to the GitHub Container Registry (GHCR). The workflow handles different scenarios:
 
-1.  **Push to `main` branch:**
-    *   Builds the Docker image using the `LATEST_ANKI_VERSION` (defined in the workflow file) for both `linux/amd64` and `linux/arm64` platforms.
-    *   Pushes the multi-architecture image and tags it solely as `latest`.
-
-2.  **Push to a version tag (e.g., `vX.Y.Z`):**
+1.  **Push to a version tag (e.g., `vX.Y.Z`):**
+    *   This is the primary scenario for releasing new versions.
     *   Extracts the version `X.Y.Z` from the tag.
     *   Builds the Docker image using this specific Anki version for both `linux/amd64` and `linux/arm64` platforms.
-    *   Pushes the multi-architecture image and tags it with the version (e.g., `X.Y.Z`).
-    *   If the version `X.Y.Z` from the tag matches the `LATEST_ANKI_VERSION`, the `latest` tag is also updated to point to this build.
+    *   Pushes the multi-architecture image to GHCR.
+    *   Tags the pushed image with the version (e.g., `X.Y.Z`).
+    *   If the version `X.Y.Z` from the tag matches the `LATEST_ANKI_VERSION` (defined in the workflow file), the `latest` tag is also updated to point to this build.
 
-3.  **Pull Request to `main` branch (and other cases):**
+2.  **Push to any branch (including `main`) OR Pull Request to `main` branch:**
+    *   These events trigger a build for validation and testing purposes.
     *   Builds the Docker image using the `LATEST_ANKI_VERSION` for the `linux/amd64` platform only.
-    *   The image is **not** pushed to the registry. This step is for validation and testing.
+    *   The image is **not** pushed to the registry.
+    *   A temporary tag (e.g., `branch-main-sha123abc`, `pr-123-sha123abc`) is generated for caching and identification.
 
-The workflow is defined in `.github/workflows/docker-build.yml`. It leverages multi-platform builds and caching for efficiency.
+The workflow is defined in `.github/workflows/docker-build.yml`. It leverages multi-platform builds (for tag pushes) and caching for efficiency.
 
 ### Image Tags
 
-The following primary tags are automatically generated and pushed to GHCR based on the CI/CD pipeline:
+The following primary tags are automatically generated and pushed to GHCR:
 
--   `latest`:
-    *   Updated on every push to the `main` branch (points to the image built with `LATEST_ANKI_VERSION`).
-    *   Also updated when a version tag (e.g., `vX.Y.Z`) is pushed, if that version `X.Y.Z` matches the `LATEST_ANKI_VERSION`.
 -   `X.Y.Z`:
     *   Created when a git tag like `vX.Y.Z` is pushed. The image is built with Anki version `X.Y.Z` and tagged as `X.Y.Z` (the 'v' prefix is removed).
+-   `latest`:
+    *   Updated **only** when a version tag (e.g., `vX.Y.Z`) is pushed, **and** that version `X.Y.Z` matches the `LATEST_ANKI_VERSION` defined in the workflow.
+    *   Pushes to the `main` branch do **not** automatically update the `latest` tag.
 
-For pull request builds, temporary tags (e.g., `build-<PR_NUMBER>-<SHA>`) might be generated for caching and identification purposes but are not pushed to the public registry.
+Temporary tags for branch pushes and pull requests (e.g., `branch-main-sha123abc`, `pr-123-sha123abc`) are used for internal CI processes and are not pushed to the public registry.
 
 ## Configuration
 
