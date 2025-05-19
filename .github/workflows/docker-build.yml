@@ -93,7 +93,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.anki_version.outputs.version }}
-            type=raw,value=${{ steps.anki_version.outputs.version | split('.')[0] }}.${{ steps.anki_version.outputs.version | split('.')[1] }}
+            type=raw,value=${{ format('{0}.{1}', steps.anki_version.outputs.version.split('.')[0], steps.anki_version.outputs.version.split('.')[1]) }}
             type=sha,format=short
             type=raw,value=latest,enable=${{ steps.is_latest.outputs.latest }}
       - name: Build and push Docker image (amd64)
@@ -151,7 +151,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.anki_version.outputs.version }}
-            type=raw,value=${{ steps.anki_version.outputs.version | split('.')[0] }}.${{ steps.anki_version.outputs.version | split('.')[1] }}
+            type=raw,value=${{ format('{0}.{1}', steps.anki_version.outputs.version.split('.')[0], steps.anki_version.outputs.version.split('.')[1]) }}
             type=sha,format=short
             type=raw,value=latest,enable=${{ steps.is_latest.outputs.latest }}
       - name: Build and push Docker image (arm64)
