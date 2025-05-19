@@ -71,16 +71,17 @@ The workflow is defined in `.github/workflows/docker-build.yml`.
 
 The CI/CD pipeline automatically matches the Anki version to the image tag:
 
-- When building from a version tag (e.g., `v25.02.5`), the Docker image uses that same version of Anki (without the "v" prefix)
-- When building from the main branch, the image uses the latest Anki version (defined in the workflow file)
+- When building from a version tag (e.g., `v25.02.5`), the Docker image uses that same version of Anki and is tagged with the version without the "v" prefix (e.g., `25.02.5`)
+- When building from the main branch, the image uses the latest Anki version (defined in the workflow file) and is tagged as `latest`
+- If a git tag version matches the latest Anki version, the image is also tagged as `latest`
 
 This ensures that specific tagged images always match their corresponding Anki versions.
 
 ### Image Tags
 
 The following tags are automatically generated:
-- `latest` - Latest build from the main branch
-- `vX.Y.Z` - Semantic version tags (when you create a release tag)
+- `latest` - Latest build from the main branch (or when a git tag matches the latest Anki version)
+- `X.Y.Z` - Semantic version tags (when you create a git tag like `vX.Y.Z`, the 'v' prefix is removed)
 - `X.Y` - Major.Minor version tags
 - `sha-XXXXXX` - Short commit SHA
 
