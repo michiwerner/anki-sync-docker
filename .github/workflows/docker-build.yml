@@ -78,6 +78,11 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "Using Anki version $VERSION from tag"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Extract version parts
+        id: anki_version_parts
+        run: |
+          IFS='.' read -r major minor _ <<< "${{ steps.anki_version.outputs.version }}"
+          echo "major_minor=${major}.${minor}" >> $GITHUB_OUTPUT
       - name: Check if this is the latest Anki version
         id: is_latest
         run: |
@@ -93,7 +98,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.anki_version.outputs.version }}
-            type=raw,value=${{ format('{0}.{1}', steps.anki_version.outputs.version.split('.')[0], steps.anki_version.outputs.version.split('.')[1]) }}
+            type=raw,value=${{ steps.anki_version_parts.outputs.major_minor }}
             type=sha,format=short
             type=raw,value=latest,enable=${{ steps.is_latest.outputs.latest }}
       - name: Build and push Docker image (amd64)
@@ -136,6 +141,11 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "Using Anki version $VERSION from tag"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Extract version parts
+        id: anki_version_parts
+        run: |
+          IFS='.' read -r major minor _ <<< "${{ steps.anki_version.outputs.version }}"
+          echo "major_minor=${major}.${minor}" >> $GITHUB_OUTPUT
       - name: Check if this is the latest Anki version
         id: is_latest
         run: |
@@ -151,7 +161,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.anki_version.outputs.version }}
-            type=raw,value=${{ format('{0}.{1}', steps.anki_version.outputs.version.split('.')[0], steps.anki_version.outputs.version.split('.')[1]) }}
+            type=raw,value=${{ steps.anki_version_parts.outputs.major_minor }}
             type=sha,format=short
             type=raw,value=latest,enable=${{ steps.is_latest.outputs.latest }}
       - name: Build and push Docker image (arm64)
