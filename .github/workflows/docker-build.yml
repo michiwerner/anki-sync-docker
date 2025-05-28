@@ -83,8 +83,6 @@ jobs:
           tags: ${{ steps.image_tags.outputs.tags }}
           build-args: |
             ANKI_VERSION=${{ steps.anki_details_tag.outputs.anki_version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build_other:
     # Handles pull_requests OR pushes to any branch that is NOT a v* tag (this includes main)
@@ -129,5 +127,3 @@ jobs:
           tags: ${{ steps.local_build_tag.outputs.tag }}
           build-args: |
             ANKI_VERSION=${{ steps.anki_version_other.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
