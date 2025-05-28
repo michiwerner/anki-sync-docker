@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "containerAppName": { "value": "anki-sync-app" },
+    "containerAppEnvName": { "value": "anki-sync-env" },
+    "logAnalyticsWorkspaceName": { "value": "anki-sync-logs" },
+    "containerImage": { "value": "ghcr.io/OWNER/REPO:TAG" },
+    "containerPort": { "value": 27701 },
+    "registryServer": { "value": "ghcr.io" },
+    "registryUsername": { "value": "<your-ghcr-username>" },
+    "registryPassword": { "value": "<your-ghcr-token>" }
+  }
+} 
