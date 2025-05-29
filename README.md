@@ -56,6 +56,27 @@ Make sure to edit the `docker-compose.yml` file to set your username and passwor
 
 You can specify a different Anki version in the `docker-compose.yml` file by changing the `ANKI_VERSION` build arg.
 
+## Deploying to Azure with Bicep
+
+You can deploy this project to Azure as a fully managed [Azure Container App](https://learn.microsoft.com/en-us/azure/container-apps/overview) using the provided Bicep templates.
+
+### Quick Start
+
+1. **Prepare your parameters:**
+   - Copy `infra/parameters.example.json` to `infra/parameters.prod.json` and edit the values (especially `containerImage`, `registryUsername`, and `registryPassword`).
+2. **Deploy with Azure CLI:**
+   ```sh
+   az deployment group create \
+     --resource-group <your-resource-group> \
+     --template-file infra/main.bicep \
+     --parameters @infra/parameters.prod.json
+   ```
+   Replace `<your-resource-group>` with your Azure resource group name.
+3. **Access your app:**
+   - The deployment output will include the FQDN of your Container App.
+
+For detailed instructions, configuration options, and troubleshooting, see [`infra/README.md`](infra/README.md).
+
 ## CI/CD Pipeline
 
 This repository includes a GitHub Actions workflow that automates the building and pushing of the Docker image to the GitHub Container Registry (GHCR). The workflow handles different scenarios:
