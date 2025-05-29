@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.35.1.17967",
-      "templateHash": "2472511841701383455"
+      "templateHash": "3593828680016846319"
     }
   },
   "parameters": {
@@ -40,21 +40,60 @@
       "type": "string"
     },
     "registryPassword": {
-      "type": "string"
+      "type": "securestring"
+    },
+    "vnetSubnetResourceId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "ankisyncstorage"
+    },
+    "fileShareName": {
+      "type": "string",
+      "defaultValue": "ankisyncdata"
     }
   },
   "resources": [
     {
       "type": "Microsoft.OperationalInsights/workspaces",
-      "apiVersion": "2021-06-01",
+      "apiVersion": "2022-10-01",
       "name": "[parameters('logAnalyticsWorkspaceName')]",
       "location": "[parameters('location')]",
-      "sku": {
-        "name": "PerGB2018"
-      },
       "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
         "retentionInDays": 30
       }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "accessTier": "Hot",
+        "allowBlobPublicAccess": false,
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/default/{1}', parameters('storageAccountName'), parameters('fileShareName'))]",
+      "properties": {
+        "accessTier": "TransactionOptimized"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
     },
     {
       "type": "Microsoft.App/managedEnvironments",
@@ -65,13 +104,32 @@
         "appLogsConfiguration": {
           "destination": "log-analytics",
           "logAnalyticsConfiguration": {
-            "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName')), '2021-06-01').customerId]",
-            "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName')), '2021-06-01').primarySharedKey]"
+            "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName')), '2022-10-01').customerId]",
+            "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName')), '2022-10-01').primarySharedKey]"
           }
-        }
+        },
+        "vnetConfiguration": "[if(empty(parameters('vnetSubnetResourceId')), null(), createObject('infrastructureSubnetId', parameters('vnetSubnetResourceId')))]"
       },
       "dependsOn": [
         "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments/storages",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', parameters('containerAppEnvName'), parameters('fileShareName'))]",
+      "properties": {
+        "azureFile": {
+          "accountName": "[parameters('storageAccountName')]",
+          "accountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-01-01').keys[0].value]",
+          "shareName": "[parameters('fileShareName')]",
+          "accessMode": "ReadWrite"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppEnvName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', split(format('{0}/default/{1}', parameters('storageAccountName'), parameters('fileShareName')), '/')[0], split(format('{0}/default/{1}', parameters('storageAccountName'), parameters('fileShareName')), '/')[1], split(format('{0}/default/{1}', parameters('storageAccountName'), parameters('fileShareName')), '/')[2])]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
       ]
     },
     {
@@ -91,12 +149,12 @@
             {
               "server": "[parameters('registryServer')]",
               "username": "[parameters('registryUsername')]",
-              "passwordSecretRef": "registryPassword"
+              "passwordSecretRef": "registry-password"
             }
           ],
           "secrets": [
             {
-              "name": "registryPassword",
+              "name": "registry-password",
               "value": "[parameters('registryPassword')]"
             }
           ]
@@ -107,19 +165,43 @@
               "name": "[parameters('containerAppName')]",
               "image": "[parameters('containerImage')]",
               "resources": {
-                "cpu": "0.5",
+                "cpu": "[json('0.5')]",
                 "memory": "1Gi"
-              }
+              },
+              "volumeMounts": [
+                {
+                  "volumeName": "data",
+                  "mountPath": "/data"
+                }
+              ]
+            }
+          ],
+          "volumes": [
+            {
+              "name": "data",
+              "storageType": "AzureFile",
+              "storageName": "[parameters('fileShareName')]"
             }
           ],
           "scale": {
-            "minReplicas": 1,
-            "maxReplicas": 1
+            "minReplicas": 0,
+            "maxReplicas": 1,
+            "rules": [
+              {
+                "name": "http-scaler",
+                "http": {
+                  "metadata": {
+                    "concurrentRequests": "1"
+                  }
+                }
+              }
+            ]
           }
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppEnvName'))]"
+        "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppEnvName'))]",
+        "[resourceId('Microsoft.App/managedEnvironments/storages', parameters('containerAppEnvName'), parameters('fileShareName'))]"
       ]
     }
   ],

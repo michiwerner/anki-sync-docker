@@ -7,25 +7,26 @@ param containerImage string
 param containerPort int = 27701
 param registryServer string = 'ghcr.io'
 param registryUsername string
+@secure()
 param registryPassword string
-param vnetSubnetResourceId string
+param vnetSubnetResourceId string = ''
 param storageAccountName string = 'ankisyncstorage'
 param fileShareName string = 'ankisyncdata'
 
 // Log Analytics Workspace
-resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2021-06-01' = {
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: logAnalyticsWorkspaceName
   location: location
-  sku: {
-    name: 'PerGB2018'
-  }
   properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
     retentionInDays: 30
   }
 }
 
 // Storage Account
-resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
   location: location
   sku: {
@@ -41,9 +42,8 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2022-09-01' = {
 }
 
 // File Share
-resource fileShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2022-09-01' = {
+resource fileShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
   name: '${storageAccount.name}/default/${fileShareName}'
-  dependsOn: [storageAccount]
   properties: {
     accessTier: 'TransactionOptimized'
   }
@@ -61,10 +61,27 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
         sharedKey: logAnalytics.listKeys().primarySharedKey
       }
     }
-    vnetConfiguration: {
+    vnetConfiguration: empty(vnetSubnetResourceId) ? null : {
       infrastructureSubnetId: vnetSubnetResourceId
     }
   }
+}
+
+// Storage configuration for Container Apps Environment
+resource storageForContainerApp 'Microsoft.App/managedEnvironments/storages@2023-05-01' = {
+  name: fileShareName
+  parent: containerAppEnv
+  properties: {
+    azureFile: {
+      accountName: storageAccount.name
+      accountKey: storageAccount.listKeys().keys[0].value
+      shareName: fileShareName
+      accessMode: 'ReadWrite'
+    }
+  }
+  dependsOn: [
+    fileShare
+  ]
 }
 
 // Container App
@@ -83,17 +100,13 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
         {
           server: registryServer
           username: registryUsername
-          passwordSecretRef: 'registryPassword'
+          passwordSecretRef: 'registry-password'
         }
       ]
       secrets: [
         {
-          name: 'registryPassword'
+          name: 'registry-password'
           value: registryPassword
-        }
-        {
-          name: 'storageAccountKey'
-          value: storageAccount.listKeys().keys[0].value
         }
       ]
     }
@@ -103,7 +116,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
           name: containerAppName
           image: containerImage
           resources: {
-            cpu: '0.5'
+            cpu: json('0.5')
             memory: '1Gi'
           }
           volumeMounts: [
@@ -118,9 +131,7 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
         {
           name: 'data'
           storageType: 'AzureFile'
-          storageName: fileShareName
-          storageAccountName: storageAccount.name
-          storageAccountKey: 'storageAccountKey'
+          storageName: storageForContainerApp.name
         }
       ]
       scale: {
@@ -133,7 +144,6 @@ resource containerApp 'Microsoft.App/containerApps@2023-05-01' = {
               metadata: {
                 concurrentRequests: '1'
               }
-              port: containerPort
             }
           }
         ]

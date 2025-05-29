@@ -9,6 +9,9 @@
     "containerPort": { "value": 27701 },
     "registryServer": { "value": "ghcr.io" },
     "registryUsername": { "value": "<your-ghcr-username>" },
-    "registryPassword": { "value": "<your-ghcr-token>" }
+    "registryPassword": { "value": "<your-ghcr-token>" },
+    "vnetSubnetResourceId": { "value": "" },
+    "storageAccountName": { "value": "ankisyncstorage" },
+    "fileShareName": { "value": "ankisyncdata" }
   }
 } 
