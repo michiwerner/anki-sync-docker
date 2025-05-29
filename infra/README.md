@@ -28,6 +28,9 @@ This directory contains Bicep files to deploy the Anki Sync Docker project as an
    - Edit the values, especially `containerImage`, `registryUsername`, and `registryPassword`
    - Optionally set `vnetSubnetResourceId` for VNet integration
    - Customize `storageAccountName` and `fileShareName` if needed
+   - By default, the deployment uses the public image `ghcr.io/ankicommunity/anki-sync-server:latest` which auto-updates when the `latest` tag is updated.
+   - For the public image, you do not need to set `registryUsername` or `registryPassword` (leave them empty).
+   - If you wish to use a private image, set `containerImage`, `registryUsername`, and `registryPassword` accordingly.
 
 2. **Deploy with Azure CLI**
    ```sh
@@ -83,8 +86,9 @@ az deployment group validate \
 ```
 
 ## Notes
+- By default, the deployment uses the public image `ghcr.io/ankicommunity/anki-sync-server:latest` which will always pull the latest version when the tag is updated on GHCR.
+- No registry credentials are required for the public image. For private images, provide your GHCR username and a Personal Access Token with `read:packages` scope.
 - The deployment creates a new Log Analytics workspace and Container Apps environment.
 - The Container App is exposed publicly on the specified port (default: 27701).
-- For private images, ensure your GHCR token has the correct permissions.
 - All resources use the latest stable API versions for improved functionality and security.
 - Storage account names must be globally unique and follow Azure naming conventions. 
