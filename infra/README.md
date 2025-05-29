@@ -28,7 +28,7 @@ This directory contains Bicep files to deploy the Anki Sync Docker project as an
    - Edit the values, especially `containerImage`, `registryUsername`, and `registryPassword`
    - Optionally set `vnetSubnetResourceId` for VNet integration
    - Customize `storageAccountName` and `fileShareName` if needed
-   - By default, the deployment uses the public image `ghcr.io/ankicommunity/anki-sync-server:latest` which auto-updates when the `latest` tag is updated.
+   - By default, the deployment uses the public image `ghcr.io/michiwerner/anki-sync-docker:latest` which auto-updates when the `latest` tag is updated.
    - For the public image, you do not need to set `registryUsername` or `registryPassword` (leave them empty).
    - If you wish to use a private image, set `containerImage`, `registryUsername`, and `registryPassword` accordingly.
 
