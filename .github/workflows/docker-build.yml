@@ -10,7 +10,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  LATEST_ANKI_VERSION: 25.02.5  # Update this when new Anki versions are released
+  LATEST_ANKI_VERSION: 25.02.6  # Update this when new Anki versions are released
 
 jobs:
   build_and_push:
@@ -42,7 +42,7 @@ jobs:
       - name: Determine Anki version and tagging strategy for Tag Push
         id: anki_details_tag
         run: |
-          TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v25.02.5 -> 25.02.5
+          TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v25.02.6 -> 25.02.6
           ANKI_VERSION="$TAG_VERSION_CLEAN"
           IS_LATEST_TAG_ELIGIBLE="false"
 
