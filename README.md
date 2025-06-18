@@ -30,7 +30,7 @@ docker build -t anki-sync-server .
 To build with a specific Anki version:
 
 ```
-docker build -t anki-sync-server --build-arg ANKI_VERSION=25.02.6 .
+docker build -t anki-sync-server --build-arg ANKI_VERSION=25.02.7 .
 ```
 
 ## Run
@@ -103,7 +103,7 @@ Temporary tags for branch pushes and pull requests (e.g., `branch-main-sha123abc
 
 ### Build Arguments
 
-- `ANKI_VERSION`: The Anki version to build the sync server from (default: 25.02.6)
+- `ANKI_VERSION`: The Anki version to build the sync server from (default: 25.02.7)
 
 ### Volumes
 
