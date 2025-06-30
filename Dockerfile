@@ -23,7 +23,7 @@ RUN git clone --depth 1 --branch ${ANKI_VERSION} https://github.com/ankitects/an
            git apply "$p"; \
          done; \
        fi \
-    && cargo install --path rslib/sync --root /usr/local
+    && PROTOC=/usr/bin/protoc cargo install --path rslib/sync --root /usr/local
 
 # Second stage - runtime image
 FROM debian:bookworm-slim
@@ -32,7 +32,7 @@ FROM debian:bookworm-slim
 RUN groupadd -r -g 1000 anki && useradd -r -u 1000 -g anki anki
 
 # Copy the binary from the builder stage
-COPY --from=builder /usr/local/cargo/bin/anki-sync-server /usr/local/bin/
+COPY --from=builder /usr/local/bin/anki-sync-server /usr/local/bin/
 
 # Create data directory
 RUN mkdir -p /data && chown -R anki:anki /data
