@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY patches /patches
 
 # Install specific version of anki-sync-server
-RUN git clone --depth 1 --branch ${ANKI_VERSION} https://github.com/ankitects/anki.git /usr/src/anki \
+RUN git clone --recursive --depth 1 --branch ${ANKI_VERSION} https://github.com/ankitects/anki.git /usr/src/anki \
     && cd /usr/src/anki \
     && if [ -d /patches/${ANKI_VERSION} ]; then \
          for p in /patches/${ANKI_VERSION}/*.patch; do \
