@@ -8,11 +8,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler \
     ca-certificates \
     git \
+    patch \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy patches
+COPY patches /patches
+
 # Install specific version of anki-sync-server
-RUN cargo install --git https://github.com/ankitects/anki.git --tag ${ANKI_VERSION} anki-sync-server
+RUN git clone --depth 1 --branch ${ANKI_VERSION} https://github.com/ankitects/anki.git /usr/src/anki \
+    && cd /usr/src/anki \
+    && if [ -d /patches/${ANKI_VERSION} ]; then \
+         for p in /patches/${ANKI_VERSION}/*.patch; do \
+           git apply "$p"; \
+         done; \
+       fi \
+    && cargo install --path . anki-sync-server
 
 # Second stage - runtime image
 FROM debian:bookworm-slim
