@@ -23,7 +23,7 @@ RUN git clone --depth 1 --branch ${ANKI_VERSION} https://github.com/ankitects/an
            git apply "$p"; \
          done; \
        fi \
-    && cargo install --path . anki-sync-server
+    && cargo install --path rslib/sync --root /usr/local
 
 # Second stage - runtime image
 FROM debian:bookworm-slim
