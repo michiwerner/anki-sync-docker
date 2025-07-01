@@ -56,6 +56,18 @@ Make sure to edit the `docker-compose.yml` file to set your username and passwor
 
 You can specify a different Anki version in the `docker-compose.yml` file by changing the `ANKI_VERSION` build arg.
 
+## Versioning and Patches
+
+This image can be built with different versions of the Anki sync server by using the `ANKI_VERSION` build argument.
+
+Some versions of Anki may require specific patches to ensure compatibility or fix issues when running in this containerized environment. These patches are located in the `patches/` directory, organized by Anki version.
+
+For example, patches for version `25.02.7` are located in `patches/25.02.7/`.
+
+The Docker build process is designed to automatically handle these patches. When you build the image with a specific `ANKI_VERSION`, the build script checks if a corresponding patch directory exists. If it does, all `.patch` files within that directory are applied to the Anki source code before compilation.
+
+This automated patching ensures that the resulting server is stable and includes any necessary modifications for the selected version without manual intervention.
+
 ## CI/CD Pipeline
 
 This repository includes a GitHub Actions workflow that automates the building and pushing of the Docker image to the GitHub Container Registry (GHCR). The workflow handles different scenarios:
