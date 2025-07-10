@@ -19,18 +19,32 @@ jobs:
   build_and_push:
     # Only run for pushes to tags starting with v*
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [amd64, arm64]
+        include:
+          - platform: amd64
+            runner: ubuntu-latest
+          - platform: arm64
+            # GitHub's official ARM64 runners (requires GitHub Team/Enterprise)
+            runner: ubuntu-latest-arm64
+            # Alternative: Use third-party ARM runners
+            # runner: blacksmith-2vcpu-ubuntu-2204-arm  # Blacksmith
+            # runner: runs-on-runner=2cpu-linux-arm64,run-id=${{ github.run_id }}  # RunsOn
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
+      # Remove QEMU setup - no longer needed with native runners
+      # - name: Set up QEMU
+      #   uses: docker/setup-qemu-action@v3
+      #   with:
+      #     platforms: arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -62,30 +76,95 @@ jobs:
           echo "is_latest_tag_eligible=$IS_LATEST_TAG_ELIGIBLE" >> $GITHUB_OUTPUT
           echo "tag_version_clean=$TAG_VERSION_CLEAN" >> $GITHUB_OUTPUT
 
-      - name: Prepare image tags
+      - name: Prepare image tags for platform
         id: image_tags
         run: |
           TAG_VERSION="${{ steps.anki_details_tag.outputs.tag_version_clean }}"
-          TAGS_STRING="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG_VERSION}"
-          if [ "${{ steps.anki_details_tag.outputs.is_latest_tag_eligible }}" == "true" ]; then
-            TAGS_STRING="$TAGS_STRING\n${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-          fi
-          # GITHUB_OUTPUT needs specific syntax for multiline strings
-          {
-            echo 'tags<<HEREDOC_DELIMITER_TAGS'
-            echo -e "$TAGS_STRING"
-            echo 'HEREDOC_DELIMITER_TAGS'
-          } >> "$GITHUB_OUTPUT"
+          PLATFORM_TAG="${TAG_VERSION}-${{ matrix.platform }}"
+          TAGS_STRING="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${PLATFORM_TAG}"
+          
+          echo "tags=$TAGS_STRING" >> $GITHUB_OUTPUT
 
-      - name: Build and push Docker image (multi-platform for Tag Push)
+      - name: Build and push Docker image (native ${{ matrix.platform }})
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/${{ matrix.platform }}
           push: true
           tags: ${{ steps.image_tags.outputs.tags }}
           build-args: |
             ANKI_VERSION=${{ steps.anki_details_tag.outputs.anki_version }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.platform }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  create_manifest:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: build_and_push
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine Anki version and tagging strategy for Tag Push
+        id: anki_details_tag
+        run: |
+          TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v25.07 -> 25.07
+          ANKI_VERSION="$TAG_VERSION_CLEAN"
+          IS_LATEST_TAG_ELIGIBLE="false"
+
+          if [ "$TAG_VERSION_CLEAN" == "${{ env.LATEST_ANKI_VERSION }}" ]; then
+            IS_LATEST_TAG_ELIGIBLE="true"
+          fi
+          echo "anki_version=$ANKI_VERSION" >> $GITHUB_OUTPUT
+          echo "is_latest_tag_eligible=$IS_LATEST_TAG_ELIGIBLE" >> $GITHUB_OUTPUT
+          echo "tag_version_clean=$TAG_VERSION_CLEAN" >> $GITHUB_OUTPUT
+
+      - name: Prepare final image tags
+        id: final_tags
+        run: |
+          TAG_VERSION="${{ steps.anki_details_tag.outputs.tag_version_clean }}"
+          TAGS_STRING="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG_VERSION}"
+          if [ "${{ steps.anki_details_tag.outputs.is_latest_tag_eligible }}" == "true" ]; then
+            TAGS_STRING="$TAGS_STRING,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          fi
+          echo "tags=$TAGS_STRING" >> $GITHUB_OUTPUT
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ steps.final_tags.outputs.tags }} \
+            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
 
   build_other:
     # Handles pull_requests OR pushes to any branch that is NOT a v* tag (this includes main)
