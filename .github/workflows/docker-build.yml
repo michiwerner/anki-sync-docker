@@ -31,11 +31,12 @@ jobs:
           - platform: amd64
             runner: ubuntu-latest
           - platform: arm64
-            # GitHub's official ARM64 runners (requires GitHub Team/Enterprise)
-            runner: ubuntu-latest-arm64
-            # Alternative: Use third-party ARM runners
-            # runner: blacksmith-2vcpu-ubuntu-2204-arm  # Blacksmith
-            # runner: runs-on-runner=2cpu-linux-arm64,run-id=${{ github.run_id }}  # RunsOn
+            # GitHub's FREE ARM64 runners for public repositories (Public Preview)
+            runner: ubuntu-24.04-arm
+            # Alternative options:
+            # runner: ubuntu-22.04-arm  # Older Ubuntu version
+            # runner: blacksmith-2vcpu-ubuntu-2204-arm  # Blacksmith (third-party)
+            # runner: runs-on-runner=2cpu-linux-arm64,run-id=${{ github.run_id }}  # RunsOn (third-party)
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -180,11 +181,12 @@ jobs:
           - platform: amd64
             runner: ubuntu-latest
           - platform: arm64
-            # GitHub's official ARM64 runners (requires GitHub Team/Enterprise)
-            runner: ubuntu-latest-arm64
-            # Alternative: Use third-party ARM runners
-            # runner: blacksmith-2vcpu-ubuntu-2204-arm  # Blacksmith
-            # runner: runs-on-runner=2cpu-linux-arm64,run-id=${{ github.run_id }}  # RunsOn
+            # GitHub's FREE ARM64 runners for public repositories (Public Preview)
+            runner: ubuntu-24.04-arm
+            # Alternative options:
+            # runner: ubuntu-22.04-arm  # Older Ubuntu version
+            # runner: blacksmith-2vcpu-ubuntu-2204-arm  # Blacksmith (third-party)
+            # runner: runs-on-runner=2cpu-linux-arm64,run-id=${{ github.run_id }}  # RunsOn (third-party)
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
