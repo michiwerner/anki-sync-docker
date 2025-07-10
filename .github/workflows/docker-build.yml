@@ -227,12 +227,12 @@ jobs:
           # Build the image references from digest files, with validation
           image_refs=""
           for digest_file in *; do
-            if [ -f "$digest_file" ] && [ -s "$digest_file" ]; then
+            if [ -f "$digest_file" ]; then
               digest="sha256:$digest_file"
               image_ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@$digest"
               image_refs="$image_refs $image_ref"
             else
-              echo "Warning: Skipping invalid or empty digest file: $digest_file"
+              echo "Warning: Skipping non-file: $digest_file"
             fi
           done
           
