@@ -17,8 +17,8 @@ env:
 
 jobs:
   build_and_push:
-    # Only run for pushes to tags starting with v*
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    # Run for pushes to tags starting with v* OR pushes to any branch
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/'))
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -62,31 +62,54 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine Anki version and tagging strategy for Tag Push
-        id: anki_details_tag
+      - name: Determine Anki version and tagging strategy
+        id: anki_details
         run: |
-          TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v25.07.1 -> 25.07.1
-          ANKI_VERSION="$TAG_VERSION_CLEAN"
-          IS_LATEST_TAG_ELIGIBLE="false"
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Tag push
+            TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v25.07.1 -> 25.07.1
+            ANKI_VERSION="$TAG_VERSION_CLEAN"
+            IS_LATEST_TAG_ELIGIBLE="false"
+            BUILD_TYPE="tag"
 
-          echo "Event: Push to tag ${{ github.ref_name }}."
-          echo "Anki version to build: $ANKI_VERSION (from tag)"
+            echo "Event: Push to tag ${{ github.ref_name }}."
+            echo "Anki version to build: $ANKI_VERSION (from tag)"
 
-          if [ "$TAG_VERSION_CLEAN" == "${{ env.LATEST_ANKI_VERSION }}" ]; then
-            IS_LATEST_TAG_ELIGIBLE="true"
-            echo "This tag's version matches LATEST_ANKI_VERSION, so 'latest' tag will also be applied."
+            if [ "$TAG_VERSION_CLEAN" == "${{ env.LATEST_ANKI_VERSION }}" ]; then
+              IS_LATEST_TAG_ELIGIBLE="true"
+              echo "This tag's version matches LATEST_ANKI_VERSION, so 'latest' tag will also be applied."
+            else
+              echo "This tag's version does not match LATEST_ANKI_VERSION."
+            fi
+            echo "anki_version=$ANKI_VERSION" >> $GITHUB_OUTPUT
+            echo "is_latest_tag_eligible=$IS_LATEST_TAG_ELIGIBLE" >> $GITHUB_OUTPUT
+            echo "tag_version_clean=$TAG_VERSION_CLEAN" >> $GITHUB_OUTPUT
+            echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
           else
-            echo "This tag's version does not match LATEST_ANKI_VERSION."
+            # Branch push
+            BRANCH_NAME_SANITIZED=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
+            ANKI_VERSION="${{ env.LATEST_ANKI_VERSION }}"
+            BUILD_TYPE="branch"
+            
+            echo "Event: Push to branch ${{ github.ref_name }}."
+            echo "Anki version to build: $ANKI_VERSION (latest)"
+            echo "Sanitized branch name: $BRANCH_NAME_SANITIZED"
+            
+            echo "anki_version=$ANKI_VERSION" >> $GITHUB_OUTPUT
+            echo "branch_name_sanitized=$BRANCH_NAME_SANITIZED" >> $GITHUB_OUTPUT
+            echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
           fi
-          echo "anki_version=$ANKI_VERSION" >> $GITHUB_OUTPUT
-          echo "is_latest_tag_eligible=$IS_LATEST_TAG_ELIGIBLE" >> $GITHUB_OUTPUT
-          echo "tag_version_clean=$TAG_VERSION_CLEAN" >> $GITHUB_OUTPUT
 
       - name: Prepare image tags for platform
         id: image_tags
         run: |
-          TAG_VERSION="${{ steps.anki_details_tag.outputs.tag_version_clean }}"
-          PLATFORM_TAG="${TAG_VERSION}-${{ matrix.platform }}"
+          if [ "${{ steps.anki_details.outputs.build_type }}" == "tag" ]; then
+            TAG_VERSION="${{ steps.anki_details.outputs.tag_version_clean }}"
+            PLATFORM_TAG="${TAG_VERSION}-${{ matrix.platform }}"
+          else
+            # Branch build
+            PLATFORM_TAG="branch-${{ steps.anki_details.outputs.branch_name_sanitized }}-${{ matrix.platform }}"
+          fi
           TAGS_STRING="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${PLATFORM_TAG}"
           
           echo "tags=$TAGS_STRING" >> $GITHUB_OUTPUT
@@ -100,7 +123,7 @@ jobs:
           push: true
           tags: ${{ steps.image_tags.outputs.tags }}
           build-args: |
-            ANKI_VERSION=${{ steps.anki_details_tag.outputs.anki_version }}
+            ANKI_VERSION=${{ steps.anki_details.outputs.anki_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -119,7 +142,7 @@ jobs:
           retention-days: 1
 
   create_manifest:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/'))
     runs-on: ubuntu-latest
     needs: build_and_push
     permissions:
@@ -148,27 +171,47 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine Anki version and tagging strategy for Tag Push
-        id: anki_details_tag
+      - name: Determine Anki version and tagging strategy
+        id: anki_details
         run: |
-          TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v25.07.1 -> 25.07.1
-          ANKI_VERSION="$TAG_VERSION_CLEAN"
-          IS_LATEST_TAG_ELIGIBLE="false"
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Tag push
+            TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v25.07.1 -> 25.07.1
+            ANKI_VERSION="$TAG_VERSION_CLEAN"
+            IS_LATEST_TAG_ELIGIBLE="false"
+            BUILD_TYPE="tag"
 
-          if [ "$TAG_VERSION_CLEAN" == "${{ env.LATEST_ANKI_VERSION }}" ]; then
-            IS_LATEST_TAG_ELIGIBLE="true"
+            if [ "$TAG_VERSION_CLEAN" == "${{ env.LATEST_ANKI_VERSION }}" ]; then
+              IS_LATEST_TAG_ELIGIBLE="true"
+            fi
+            echo "anki_version=$ANKI_VERSION" >> $GITHUB_OUTPUT
+            echo "is_latest_tag_eligible=$IS_LATEST_TAG_ELIGIBLE" >> $GITHUB_OUTPUT
+            echo "tag_version_clean=$TAG_VERSION_CLEAN" >> $GITHUB_OUTPUT
+            echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
+          else
+            # Branch push
+            BRANCH_NAME_SANITIZED=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
+            ANKI_VERSION="${{ env.LATEST_ANKI_VERSION }}"
+            BUILD_TYPE="branch"
+            
+            echo "anki_version=$ANKI_VERSION" >> $GITHUB_OUTPUT
+            echo "branch_name_sanitized=$BRANCH_NAME_SANITIZED" >> $GITHUB_OUTPUT
+            echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
           fi
-          echo "anki_version=$ANKI_VERSION" >> $GITHUB_OUTPUT
-          echo "is_latest_tag_eligible=$IS_LATEST_TAG_ELIGIBLE" >> $GITHUB_OUTPUT
-          echo "tag_version_clean=$TAG_VERSION_CLEAN" >> $GITHUB_OUTPUT
 
       - name: Prepare final image tags
         id: final_tags
         run: |
-          TAG_VERSION="${{ steps.anki_details_tag.outputs.tag_version_clean }}"
-          TAGS_STRING="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG_VERSION}"
-          if [ "${{ steps.anki_details_tag.outputs.is_latest_tag_eligible }}" == "true" ]; then
-            TAGS_STRING="$TAGS_STRING,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          if [ "${{ steps.anki_details.outputs.build_type }}" == "tag" ]; then
+            TAG_VERSION="${{ steps.anki_details.outputs.tag_version_clean }}"
+            TAGS_STRING="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG_VERSION}"
+            if [ "${{ steps.anki_details.outputs.is_latest_tag_eligible }}" == "true" ]; then
+              TAGS_STRING="$TAGS_STRING,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            fi
+          else
+            # Branch build
+            BRANCH_TAG="branch-${{ steps.anki_details.outputs.branch_name_sanitized }}"
+            TAGS_STRING="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${BRANCH_TAG}"
           fi
           echo "tags=$TAGS_STRING" >> $GITHUB_OUTPUT
 
@@ -206,8 +249,8 @@ jobs:
             $image_refs
 
   build_other:
-    # Handles pull_requests OR pushes to any branch that is NOT a v* tag (this includes main)
-    if: (github.event_name == 'pull_request') || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/v'))
+    # Only handles pull_requests now
+    if: github.event_name == 'pull_request'
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -246,15 +289,7 @@ jobs:
       - name: Prepare local build tag
         id: local_build_tag
         run: |
-          TAG_VALUE_PREFIX=""
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            TAG_VALUE_PREFIX="pr-${{ github.event.number }}"
-          elif [ "${{ github.event_name }}" == "push" ] && [[ "${{ github.ref }}" == refs/heads/* ]]; then
-            BRANCH_NAME_SANITIZED=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9_.-]/-/g')
-            TAG_VALUE_PREFIX="branch-${BRANCH_NAME_SANITIZED}"
-          else
-            TAG_VALUE_PREFIX="build" # Fallback for other types of refs if any
-          fi
+          TAG_VALUE_PREFIX="pr-${{ github.event.number }}"
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           echo "tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG_VALUE_PREFIX}-${SHORT_SHA}-${{ matrix.platform }}" >> $GITHUB_OUTPUT
 
