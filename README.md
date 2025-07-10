@@ -62,7 +62,7 @@ This image can be built with different versions of the Anki sync server by using
 
 Some versions of Anki may require specific patches to ensure compatibility or fix issues when running in this containerized environment. These patches are located in the `patches/` directory, organized by Anki version.
 
-For example, patches for version `25.07` are located in `patches/25.07/`.
+For example, patches for version `25.02.7` are located in `patches/25.02.7/`.
 
 The Docker build process is designed to automatically handle these patches. When you build the image with a specific `ANKI_VERSION`, the build script checks if a corresponding patch directory exists. If it does, all `.patch` files within that directory are applied to the Anki source code before compilation.
 
