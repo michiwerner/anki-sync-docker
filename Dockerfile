@@ -1,7 +1,7 @@
 FROM rust:1.85.0-slim-bookworm AS builder
 
 # Add ARG for Anki version
-ARG ANKI_VERSION=25.07.2
+ARG ANKI_VERSION=25.07.3
 
 # Install protobuf and other build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
