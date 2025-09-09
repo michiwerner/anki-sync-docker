@@ -1,4 +1,4 @@
-FROM rust:1.85.0-slim-bookworm AS builder
+FROM rust:1.89-slim-bookworm AS builder
 
 # Add ARG for Anki version
 ARG ANKI_VERSION=25.09
