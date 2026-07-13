@@ -123,7 +123,7 @@ Temporary tags for branch pushes and pull requests (e.g., `branch-main-sha123abc
 
 ### User Permissions
 
-The container runs as a non-root user with UID/GID 1000:1000. If you're mounting a volume from your host, make sure it has appropriate permissions.
+The container runs as a non-root system user with UID/GID 577:577. If you're mounting a volume from your host, make sure it has appropriate permissions.
 
 ## Client Setup
 
