@@ -6,9 +6,19 @@ on:
       - '*'
     tags:
       - '*'
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.idea/**'
   pull_request:
     branches:
       - '*'
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.idea/**'
 
 env:
   REGISTRY: ghcr.io
