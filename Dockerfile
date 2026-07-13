@@ -28,14 +28,14 @@ RUN git clone --recursive --depth 1 --branch ${ANKI_VERSION} https://github.com/
 # Second stage - runtime image
 FROM debian:bookworm-slim
 
-# Create a non-root user with specific UID/GID (1000:1000)
-RUN groupadd -r -g 1000 anki && useradd -r -u 1000 -g anki anki
+# Create a non-root user with specific UID/GID (577:577)
+RUN groupadd -r -g 577 ankisync && useradd -r -u 577 -g ankisync ankisync
 
 # Copy the binary from the builder stage
 COPY --from=builder /usr/local/bin/anki-sync-server /usr/local/bin/
 
 # Create data directory
-RUN mkdir -p /data && chown -R anki:anki /data
+RUN mkdir -p /data && chown -R ankisync:ankisync /data
 
 # Set working directory
 WORKDIR /data
@@ -49,7 +49,7 @@ ENV SYNC_PORT=27701
 EXPOSE 27701
 
 # Switch to non-root user
-USER anki
+USER ankisync
 
 # Command to run the container
 ENTRYPOINT ["/usr/local/bin/anki-sync-server"]
