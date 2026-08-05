@@ -23,7 +23,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  LATEST_ANKI_VERSION: 26.08  # Update this when new Anki versions are released
+  LATEST_ANKI_VERSION: 26.08.1  # Update this when new Anki versions are released
 
 jobs:
   build_and_push:
@@ -77,7 +77,7 @@ jobs:
         run: |
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             # Tag push
-            TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v26.08 -> 26.08
+            TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v26.08.1 -> 26.08.1
             ANKI_VERSION="$TAG_VERSION_CLEAN"
             IS_LATEST_TAG_ELIGIBLE="false"
             BUILD_TYPE="tag"
@@ -186,7 +186,7 @@ jobs:
         run: |
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             # Tag push
-            TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v26.08 -> 26.08
+            TAG_VERSION_CLEAN="${GITHUB_REF_NAME#v}" # Strip 'v' prefix, e.g., v26.08.1 -> 26.08.1
             ANKI_VERSION="$TAG_VERSION_CLEAN"
             IS_LATEST_TAG_ELIGIBLE="false"
             BUILD_TYPE="tag"
